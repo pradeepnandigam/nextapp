@@ -10,6 +10,7 @@ interface DialogBoxProps {
 const DialogBox: React.FC<DialogBoxProps> = ({ message, type, onClose }) => {
   const [isOpen, setIsOpen] = useState(true);
 
+  //border styles
   const getBorderStyle = () => {
     if (type === 'success') {
       return 'border-green-500 bg-green-100';
@@ -21,12 +22,12 @@ const DialogBox: React.FC<DialogBoxProps> = ({ message, type, onClose }) => {
   };
 
   useEffect(() => {
-    // Automatically close the dialog after 5000 milliseconds (5 seconds)
+    // Automatically close
     const timeoutId = setTimeout(() => {
       onClose();
     }, 10000);
 
-    // Cleanup the timeout when the component is unmounted or onClose is called
+    // Cleanup the timeout
     return () => clearTimeout(timeoutId);
   }, [onClose]);
 

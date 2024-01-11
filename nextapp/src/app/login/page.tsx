@@ -1,6 +1,6 @@
 // login.tsx
 "use client";
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Head from 'next/head';
 import { FaEnvelope, FaKey, FaEye, FaLock, FaEyeSlash } from 'react-icons/fa';
 import Link from 'next/link';
@@ -21,7 +21,7 @@ export default function Login() {
   const togglePasswordVisibility = () => {
     setShowPassword((prev) => !prev);
   };
-
+  
   // Function to toggle Remember Me option
   const toggleRememberMe = () => {
     setRememberMe(!rememberMe);
@@ -71,6 +71,7 @@ export default function Login() {
         const data = response.data;
         alert('Sign In successful!');
         storeTokensInCookie(data.result.token, data.result.refreshToken);
+        window.location.href = '/';
       } else {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
@@ -82,11 +83,9 @@ export default function Login() {
          //invalid
           displayDialog(`Invalid credentials. Please check your email and password.`, 'error');
         } else {
-          console.error("Sign In error:", error);
           displayDialog('Sign In failed. Please try again later.', 'error');
         }
       } else {
-        console.error("Sign In error:", error);
         displayDialog('Sign In failed. Please try again later.', 'error');
       }
     }     
