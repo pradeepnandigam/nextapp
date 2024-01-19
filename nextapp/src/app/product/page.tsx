@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { getToken, deleteCookie } from '../components/cookie';
-import { getUserProfile, UserProfile } from '../components/userprofile';
+import { getUserProfile} from '../components/userprofile';
 
 export default function Product() {
   const router = useRouter();
