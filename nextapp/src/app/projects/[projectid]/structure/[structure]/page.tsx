@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { Button, TextField, Paper, Typography, TableContainer, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import { getToken } from '@/app/components/cookie';
-import { useRouter } from 'next/navigation';
-import InputAdornment from '@mui/material/InputAdornment';
-import SearchIcon from '@mui/icons-material/Search';
+import { useParams, useRouter } from 'next/navigation';
+import { InputAdornment } from '@mui/material';
+import { Search } from '@mui/icons-material';
 import { fetchData } from './api';
 
 // Interfaces for data structures
@@ -74,6 +74,7 @@ const HierarchyComponent: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [detailViewData, setDetailViewData] = useState<View | null>(null);
   const router = useRouter();
+  const params = useParams();
 
   // Fetch data on component mount
   useEffect(() => {
@@ -81,8 +82,10 @@ const HierarchyComponent: React.FC = () => {
       try {
         // Fetch data using token and project ID from URL
         const token = getToken();
-        const projectid = window.location.pathname.split('/')[2] || 'default';
-        const result = await fetchData(token, projectid);
+        // console.log(params);
+        const projectId = Array.isArray(params.projectid) ? params.projectid[0] : params.projectid;
+        // console.log(projectId);
+        const result = await fetchData(token, projectId);
 
         // Extract relevant data and set the state
         const mainViewData = result;
@@ -143,37 +146,41 @@ const HierarchyComponent: React.FC = () => {
     setSearchTerm(searchText);
   };
 
-  // Render visible views based on search
-  const renderVisibleViews = (views: View[]) => {
-    const renderView = (view: View) => (
-      <React.Fragment key={view._id}>
-        <TableRow>
-          <TableCell className={`p-3 pl-3 border ${view.isChild ? 'pl-child' : ''}`} style={{ width: '330px' }}>
-            <span onClick={() => handleToggleChildren(view._id)} className="pl-3 cursor-pointer">
-              {view.children.length > 0 && (expandedViews.includes(view._id) ? '-' : '+')}
-            </span>
-            <span
-              id={view._id}
-              onClick={() => handleViewNameClick(view._id)}
-              className="cursor-pointer pl-2"
-              style={{ marginLeft: '5px' }}
-            >
-              {view.name}
-            </span>
-          </TableCell>
-        </TableRow>
-        {expandedViews.includes(view._id) && view.children.length > 0 && (
-          <div style={{ paddingLeft: `${(view.depth || 0) + 1 * 20}px` }}>
-            {view.children.map((child) => renderView(child))}
-          </div>
-        )}
-      </React.Fragment>
-    );
+  //text and color of status
+  const getStatusButtonData = (view: View): { label: string; color: string } | null => {
+    if (view.designs.length === 0) {
+      return {
+        label: 'ND',
+        color: 'bg-orange-500',
+      };
+    }
 
+    if (view.snapshots.latestSnapshot === undefined) {
+      return {
+        label: 'NR',
+        color: 'bg-orange-500',
+      };
+    }
+
+    if (view.snapshots.latestSnapshot.state === 'Inactive') {
+      return {
+        label: 'P',
+        color: 'bg-blue-500',
+      };
+    }
+
+    // Handle other cases or states as needed
+    // For example, you can add more conditions for different states
+
+    return null; // Return null if no conditions are met
+  };
+
+  //displaying the relevant data after search
+  const renderVisibleViews = (views: View[]) => {
     const filterViewsRecursive = (view: View, depth: number = 0): View | null => {
       const viewNameLowerCase = view.name.toLowerCase();
       const matchingChildren = view.children
-        .map((child) => filterViewsRecursive(child, depth + 1))
+        .map((child) => filterViewsRecursive(child))
         .filter((child) => child !== null) as View[];
 
       if (viewNameLowerCase.includes(searchTerm) || matchingChildren.length > 0) {
@@ -188,7 +195,6 @@ const HierarchyComponent: React.FC = () => {
       return null;
     };
 
-
     const matchingViews = views.map((view) => filterViewsRecursive(view)).filter(Boolean);
 
     if (matchingViews.length === 0 && searchTerm.trim() !== "") {
@@ -201,7 +207,10 @@ const HierarchyComponent: React.FC = () => {
 
     return matchingViews.map((matchedParent) => (
       <React.Fragment key={matchedParent!._id}>
-        {renderView(matchedParent!)}
+        {renderViewRow(matchedParent!)}
+        {expandedViews.includes(matchedParent!._id) && matchedParent!.children.length > 0 && (
+          renderViewRowsRecursive(matchedParent!.children)
+        )}
       </React.Fragment>
     ));
   };
@@ -215,40 +224,43 @@ const HierarchyComponent: React.FC = () => {
   );
 
   const handleViewNameClick = (id: string) => {
-    const pid = window.location.pathname.split('/').pop() || 'default';
-    const newPath = `/projects/${pid}/structure/${id}`;
-    router.push(newPath);
+    //write function to handke click
   };
 
   // Render a single view row
   const renderViewRow = (view: View, depth: number = 0) => (
     <TableRow key={view._id} className="">
       <TableCell className="p-3 pl-3 mb-5 border bg-gray-200" style={{ width: '330px', paddingLeft: `${(depth || 0) * 5}px` }}>
-        <span onClick={() => handleToggleChildren(view._id)} className="pl-3 cursor-pointer">
-          {view.children && view.children.length > 0 &&
-            (expandedViews.includes(view._id) ? '-' : '+')}
-        </span>
-        <span
-          id={view._id}
-          onClick={() => handleViewNameClick(view._id)}
-          className="cursor-pointer pl-2"
-          style={{ marginLeft: '5px' }}
-        >
-          {view.name}
-        </span>
-        {/* Display status button */}
-        {view.designs.length > 0 && (
-          <button
-            className={`ml-2 ${view.status === 'In Progress' ? 'bg-blue-500' : 'bg-orange-500'
-              } text-white px-1 py-1 rounded text-xs`}
-          >
-            {view.status === 'In Progress' ? 'P' : 'ND'}
-          </button>
-
-        )}
+        <div className="flex justify-between items-center w-full">
+          <div>
+            <span onClick={() => handleToggleChildren(view._id)} className="pl-3 cursor-pointer">
+              {view.children && view.children.length > 0 &&
+                (expandedViews.includes(view._id) ? '-' : '+')}
+            </span>
+            <span
+              id={view._id}
+              onClick={() => handleViewNameClick(view._id)}
+              className="cursor-pointer pl-2"
+              style={{ marginLeft: '5px' }}
+            >
+              {view.name}
+            </span>
+          </div>
+          {/* Display status button */}
+          {view.status && (
+            <div className="flex items-center status-button-container">
+              {getStatusButtonData(view) && (
+                <button className={`max-h-15 w-[2em] px-1 py-1 text-white rounded text-xs ${getStatusButtonData(view)!.color}`}>
+                  {getStatusButtonData(view)!.label}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </TableCell>
     </TableRow>
   );
+
 
 
   const renderViewRowsRecursive = (views: View[] | null, depth: number = 0) => (
@@ -263,6 +275,10 @@ const HierarchyComponent: React.FC = () => {
       </React.Fragment>
     ))
   );
+
+
+
+
   return (
     <div className="fixed bottom-0 left-0">
       {!expanded && (
@@ -290,11 +306,11 @@ const HierarchyComponent: React.FC = () => {
               fullWidth
               value={searchTerm}
               onChange={(e) => handleSearch(e)}
-              className="p-4 mb-6 text-orange-500"
+              className="p-5 mb-6 text-orange-500"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon />
+                    <Search />
                   </InputAdornment>
                 ),
               }}

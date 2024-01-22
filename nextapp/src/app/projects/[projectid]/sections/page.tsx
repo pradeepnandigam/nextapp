@@ -2,25 +2,17 @@
 "use client"
 import { fetchData } from './api';
 import React, { useState, useEffect } from 'react';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import SearchIcon from '@mui/icons-material/Search';
-import InputAdornment from '@mui/material/InputAdornment';
-import TextField from '@mui/material/TextField';
-import TableContainer from '@mui/material/TableContainer';
-import TableBody from '@mui/material/TableBody';
-import Table from '@mui/material/Table';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import TableCell from '@mui/material/TableCell';
-import CloseIcon from '@mui/icons-material/Close';
-import { getToken } from '../../components/cookie';
+import { ChevronRight, Search, ExpandMore, Close } from '@mui/icons-material';
+import { InputAdornment, TextField, TableContainer, TableBody, Table, TableHead, TableRow, TableCell } from '@mui/material';
+import { useRouter, useParams, usePathname } from 'next/navigation';
+import { getToken } from '../../../components/cookie';
 import Image from 'next/image';
-import phoneImage from "../../../../public/images/phoneImage.svg";
-import capture360Image from "../../../../public/images/capture360Image.svg";
-import videoWalk from "../../../../public/images/videoWalk.svg";
-import droneImage from "../../../../public/images/droneImage.svg";
-import { useRouter } from 'next/navigation';
+//images from public folder
+import phoneImage from "../../../../../public/images/phoneImage.svg";
+import capture360Image from "../../../../../public/images/capture360Image.svg";
+import videoWalk from "../../../../../public/images/videoWalk.svg";
+import droneImage from "../../../../../public/images/droneImage.svg";
+
 
 // Interfaces for data structures
 interface Capture {
@@ -76,10 +68,18 @@ interface View {
     latestSnapshot: Snapshot;
   };
   isExpanded?: boolean;
+  isChild?: boolean;
+  depth?: number | null | undefined;
 }
 
 // Functional component for ViewsPage
 const ViewsPage: React.FC = () => {
+
+  const router = useRouter();
+  const params = useParams();
+  // const path = usePathname();
+  const projectId = Array.isArray(params.projectid) ? params.projectid[0] : params.projectid;
+
   // State variables
   const [view, setView] = useState<View>({
     _id: '',
@@ -109,16 +109,15 @@ const ViewsPage: React.FC = () => {
   const [searchText, setSearchText] = useState<string>('');
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [detailViewData, setDetailViewData] = useState<View | null>(null);
-  const router=useRouter();
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Fetch data on component mount
   useEffect(() => {
     const fetchDataAndSetView = async () => {
       try {
-        // Fetch data using token and project ID from URL
+
         const token = getToken();
-        const projectid = window.location.pathname.split('/').pop() || 'default';
-        const result = await fetchData(token, projectid);
+        const result = await fetchData(token, projectId);
 
         // Extract relevant data and set the state
         const mainViewData = result;
@@ -146,6 +145,10 @@ const ViewsPage: React.FC = () => {
       } catch (error) {
         console.error('Error fetching data:', error);
       }
+      finally {
+        // Set loading to false when data is fetched (whether successful or not)
+        setIsLoading(false);
+      }
     };
 
     fetchDataAndSetView();
@@ -155,13 +158,9 @@ const ViewsPage: React.FC = () => {
 
   // Toggle visibility of child views when clicking on view name
   const handleToggleChildren = (id: string) => {
-    // Log view._id when the view name is clicked
-    console.log(view._id);
-
     setExpandedViews((prevExpandedViews) => {
       // Check if the view is currently expanded
       const isExpanded = prevExpandedViews.includes(id);
-
       // If expanded, collapse it; otherwise, expand it
       return isExpanded
         ? prevExpandedViews.filter((viewId) => viewId !== id)
@@ -196,30 +195,74 @@ const ViewsPage: React.FC = () => {
 
   // Render visible views based on search
   const renderVisibleViews = (views: View[]) => {
-    const filterViewsRecursive = (view: View): View[] => {
-      const viewNameLowerCase = view.name.toLowerCase(); // Convert view name to lowercase
-      const matchingChildren = view.children.flatMap((child) => filterViewsRecursive(child));
-      const matchingView = { ...view, children: matchingChildren };
+    const filterViewsRecursive = (view: View, depth: number = 0): View | null => {
+      const viewNameLowerCase = view.name.toLowerCase();
+      const matchingChildren = view.children
+        .map((child) => filterViewsRecursive(child))
+        .filter((child) => child !== null) as View[];
 
-      // Filter views based on search text
-      return viewNameLowerCase.includes(searchText) || matchingChildren.length > 0 ? [matchingView] : [];
+      if (viewNameLowerCase.includes(searchText) || matchingChildren.length > 0) {
+        return {
+          ...view,
+          children: matchingChildren,
+          isChild: matchingChildren.length > 0,
+          depth,
+        };
+      }
+
+      return null;
     };
 
-    const matchingViews = views.flatMap((view) => filterViewsRecursive(view));
+    const matchingViews = views.map((view) => filterViewsRecursive(view)).filter(Boolean);
+
     if (matchingViews.length === 0 && searchText.trim() !== "") {
-      // No results found
       return (
         <div className="text-center mt-6">
           <h2>No results found</h2>
         </div>
       );
     }
-    return matchingViews.map((child) => (
-      <React.Fragment key={child._id}>
-        {renderExpandedView(child)}
+
+    return matchingViews.map((matchedParent) => (
+      <React.Fragment key={matchedParent!._id}>
+        {renderViewRow(matchedParent!)}
+        {expandedViews.includes(matchedParent!._id) && matchedParent!.children.length > 0 && (
+          renderViewRowsRecursive(matchedParent!.children)
+        )}
       </React.Fragment>
     ));
   };
+
+  // color&name  for button
+  const getStatusButtonData = (view: View): { label: string; color: string } | null => {
+    if (view.designs.length === 0) {
+      return {
+        label: 'No Design',
+        color: 'bg-orange-500',
+      };
+    }
+
+    if (view.snapshots.latestSnapshot === undefined) {
+      return {
+        label: 'No Reality',
+        color: 'bg-orange-500',
+      };
+    }
+
+    if (view.snapshots.latestSnapshot.state === 'Inactive') {
+      return {
+        label: 'Processing',
+        color: 'bg-blue-500',
+      };
+    }
+
+    // Handle other cases or states as needed
+    // For example, you can add more conditions for different states
+
+    return null; // Return null if no conditions are met
+  };
+
+
 
 
   // Render expanded view and its children
@@ -233,11 +276,9 @@ const ViewsPage: React.FC = () => {
   );
 
 
-  const handleViewNameClick = (id: string) => {
-  const pid = window.location.pathname.split('/').pop() || 'default';
-  const newPath = `/projects/${pid}/structure/${id}`; // Append the new segment
-  // Push to the new URL
-  router.push(newPath);
+  const handleViewNameClick = (pid: string, id: string) => {
+    const newPath = `/projects/${pid}/structure/${id}`;
+    router.push(newPath);
   };
 
 
@@ -247,13 +288,13 @@ const ViewsPage: React.FC = () => {
       <TableCell className="p-3">
         <span onClick={() => handleToggleChildren(view._id)} className="cursor-pointer">
           {view.children.length > 0 &&
-            (expandedViews.includes(view._id) ? <ExpandMoreIcon /> : <ChevronRightIcon />)}
+            (expandedViews.includes(view._id) ? <ExpandMore /> : <ChevronRight />)}
         </span>
         <span
           id={view._id} // Set the id attribute with the child _id
-          onClick={() => handleViewNameClick(view._id)}
+          onClick={() => handleViewNameClick(projectId, view._id)}
           className="cursor-pointer"
-          style={{ marginLeft: '5px' }} // Add some spacing if needed
+          style={{ marginLeft: '5px' }}
         >
           {view.name}
         </span>
@@ -261,14 +302,16 @@ const ViewsPage: React.FC = () => {
       <TableCell className="p-3">
         {view.status && (
           <div className="flex items-center">
-            <button className="max-h-15 mr-3 ml-2 px-1 py-1 bg-blue-500 text-white rounded text-xs">
-              {view.status === 'In Progress' ? 'Processing' : view.status}
-            </button>
+            {getStatusButtonData(view) && (
+              <button className={`max-h-15 mr-3 ml-2 px-1 py-1 text-white rounded text-xs ${getStatusButtonData(view)!.color}`}>
+                {getStatusButtonData(view)!.label}
+              </button>
+            )}
           </div>
         )}
       </TableCell>
-      <TableCell className="p-3">{view.issueCount}</TableCell>
-      <TableCell className="p-3">{view.taskCount}</TableCell>
+      <TableCell className="p-3">{view.issueCount !== 0 ? view.issueCount : '-'}</TableCell>
+      <TableCell className="p-3">{view.taskCount !== 0 ? view.taskCount : '-'}</TableCell>
       <TableCell className="p-3">
         <div className="flex flex-row gap-5 captures-cell items-center">
           <div className="flex items-center" title="Phone Image" style={{ marginInlineEnd: '10px' }}>
@@ -332,7 +375,7 @@ const ViewsPage: React.FC = () => {
       </header>
       <div className="flex justify-end mb-4 overflow-none">
         {!isSearchOpen ? (
-          <SearchIcon className="cursor-pointer" onClick={handleSearchIconClick} />
+          <Search className="cursor-pointer" onClick={handleSearchIconClick} />
         ) : (
           ""
         )}
@@ -347,7 +390,7 @@ const ViewsPage: React.FC = () => {
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <CloseIcon className="cursor-pointer" onClick={handleSearchClose} />
+                  <Close className="cursor-pointer" onClick={handleSearchClose} />
                 </InputAdornment>
               ),
             }}
@@ -356,7 +399,14 @@ const ViewsPage: React.FC = () => {
       </div>
 
       <main style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 80px)' }}>
-        {view && (
+        {isLoading ? ( // Show loader while data is being fetched
+          <div className="flex justify-center items-center h-full">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        ) : (
+          // Render the table when data is available
           <TableContainer
             style={{ overflow: 'auto', borderRadius: '10px', border: 'none', maxHeight: '100%', zIndex: 1 }}
           >
@@ -391,5 +441,4 @@ const ViewsPage: React.FC = () => {
   );
 };
 
-// Export the component
 export default ViewsPage;
