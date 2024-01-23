@@ -117,6 +117,7 @@ const ViewsPage: React.FC = () => {
       try {
 
         const token = getToken();
+        console.log(projectId);
         const result = await fetchData(token, projectId);
 
         // Extract relevant data and set the state
@@ -285,21 +286,25 @@ const ViewsPage: React.FC = () => {
   // Render a single view row
   const renderViewRow = (view: View) => (
     <TableRow key={view._id} className={`${!view.lastUpdated ? 'bg-gray-200' : ''} border-b`}>
-      <TableCell className="p-3">
-        <span onClick={() => handleToggleChildren(view._id)} className="cursor-pointer">
-          {view.children.length > 0 &&
-            (expandedViews.includes(view._id) ? <ExpandMore /> : <ChevronRight />)}
-        </span>
-        <span
-          id={view._id} // Set the id attribute with the child _id
-          onClick={() => handleViewNameClick(projectId, view._id)}
-          className="cursor-pointer"
-          style={{ marginLeft: '5px' }}
-        >
-          {view.name}
-        </span>
+      <TableCell className="p-3" style={{ width: '30%' }}>
+        <div className="flex items-center">
+          <span
+            onClick={() => handleToggleChildren(view._id)}
+            className={`cursor-pointer ${view.children.length > 0 ? 'mr-2' : 'w-5'}`}
+          >
+            {view.children.length > 0 &&
+              (expandedViews.includes(view._id) ? <ExpandMore /> : <ChevronRight />)}
+          </span>
+          <span
+            id={view._id}
+            onClick={() => handleViewNameClick(projectId, view._id)}
+            className="cursor-pointer pl-7 text-center"
+          >
+            {view.name}
+          </span>
+        </div>
       </TableCell>
-      <TableCell className="p-3">
+      <TableCell className="p-3" style={{ width: '10%' }}>
         {view.status && (
           <div className="flex items-center">
             {getStatusButtonData(view) && (
@@ -310,37 +315,49 @@ const ViewsPage: React.FC = () => {
           </div>
         )}
       </TableCell>
-      <TableCell className="p-3">{view.issueCount !== 0 ? view.issueCount : '-'}</TableCell>
-      <TableCell className="p-3">{view.taskCount !== 0 ? view.taskCount : '-'}</TableCell>
-      <TableCell className="p-3">
-        <div className="flex flex-row gap-5 captures-cell items-center">
-          <div className="flex items-center" title="Phone Image" style={{ marginInlineEnd: '10px' }}>
-            <span className="mr-2">
+      <TableCell className="p-3" style={{ width: '5%' }}>
+        {view.issueCount !== 0 ? view.issueCount : '-'}
+      </TableCell>
+      <TableCell className="p-3" style={{ width: '5%' }}>
+        {view.taskCount !== 0 ? view.taskCount : '-'}
+      </TableCell>
+      <TableCell className="p-3" style={{ width: '35%' }}>
+        <div className="flex flex-row gap-4 captures-cell items-center">
+          <div className="flex items-center" title="Phone Image" style={{ width: '25%' }}>
+            <span className="mr-2 w-[2.5em]">
               <Image src={phoneImage} alt="Phone Image" width="20" height="20" />
             </span>
-            {view.capture['Phone Image'] || '-'}
+            <div style={{ width: '75%' }}>
+              {view.capture['Phone Image'] || '-'}
+            </div>
           </div>
-          <div className="flex items-center" title="360 Image" style={{ marginInlineEnd: '10px' }}>
-            <span className="mr-2">
+          <div className="flex items-center" title="360 Image" style={{ width: '25%' }}>
+            <span className="mr-2 w-[2.5em]">
               <Image src={capture360Image} alt="360 Image" width="20" height="20" />
             </span>
-            {view.capture['360 Image'] || '-'}
+            <div style={{ width: '75%' }}>
+              {view.capture['360 Image'] || '-'}
+            </div>
           </div>
-          <div className="flex items-center" title="Video Walk" style={{ marginInlineEnd: '10px' }}>
-            <span className="mr-2">
+          <div className="flex items-center" title="Video Walk" style={{ width: '25%' }}>
+            <span className="mr-2 w-[2.5em]">
               <Image src={videoWalk} alt="360 Video" width="20" height="20" />
             </span>
-            {view.capture['360 Video'] || '-'}
+            <div style={{ width: '75%' }}>
+              {view.capture['360 Video'] || '-'}
+            </div>
           </div>
-          <div className="flex items-center" title="Drone Image" style={{ marginInlineEnd: '10px' }}>
-            <span className="mr-2">
+          <div className="flex items-center" title="Drone Image" style={{ width: '25%' }}>
+            <span className="mr-2 w-[2.5em]">
               <Image src={droneImage} alt="Drone Image" width="20" height="20" />
             </span>
-            {view.capture['Drone Image'] || '-'}
+            <div style={{ width: '75%' }}>
+              {view.capture['Drone Image'] || '-'}
+            </div>
           </div>
         </div>
       </TableCell>
-      <TableCell className="p-3">{formatDate(view.lastUpdated)}</TableCell>
+      <TableCell className="p-3" style={{ width: '20%' }} >{formatDate(view.lastUpdated)}</TableCell>
     </TableRow>
   );
 
@@ -399,28 +416,34 @@ const ViewsPage: React.FC = () => {
       </div>
 
       <main style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 80px)' }}>
-        {isLoading ? ( // Show loader while data is being fetched
-          <div className="flex justify-center items-center h-full">
-            <div className="spinner-border text-primary" role="status">
-              <span className="visually-hidden">Loading...</span>
-            </div>
-          </div>
-        ) : (
-          // Render the table when data is available
-          <TableContainer
-            style={{ overflow: 'auto', borderRadius: '10px', border: 'none', maxHeight: '100%', zIndex: 1 }}
-          >
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell className="px-6 py-3 text-left" style={{ borderBottom: '2px solid orange' }}>View Name</TableCell>
-                  <TableCell className="px-6 py-3 text-left" style={{ borderBottom: '2px solid orange' }}>Status</TableCell>
-                  <TableCell className="px-6 py-3 text-left" style={{ borderBottom: '2px solid orange' }}>Issues</TableCell>
-                  <TableCell className="px-6 py-3 text-left" style={{ borderBottom: '2px solid orange' }}>Tasks</TableCell>
-                  <TableCell className="px-6 py-3 text-left" style={{ borderBottom: '2px solid orange' }}>Captures</TableCell>
-                  <TableCell className="px-6 py-3 text-left" style={{ borderBottom: '2px solid orange' }}>Last Processed Capture</TableCell>
-                </TableRow>
-              </TableHead>
+        {/* Conditionally render the table head only when not loading */}
+        <TableContainer
+          style={{ overflow: 'auto', borderRadius: '10px', border: 'none', maxHeight: '100%', zIndex: 1 }}
+        >
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell className="px-6 py-3 text-left" style={{ borderBottom: '2px solid orange' }}>View Name</TableCell>
+                <TableCell className="px-6 py-3 text-center" style={{ borderBottom: '2px solid orange' }}>Status</TableCell>
+                <TableCell className="px-6 py-3 text-center" style={{ borderBottom: '2px solid orange' }}>Issues</TableCell>
+                <TableCell className="px-6 py-3 text-center" style={{ borderBottom: '2px solid orange' }}>Tasks</TableCell>
+                <TableCell className="px-6 py-3 text-left" style={{ borderBottom: '2px solid orange' }}>Captures</TableCell>
+                <TableCell className="px-6 py-3 text-left" style={{ borderBottom: '2px solid orange' }}>Last Processed Capture</TableCell>
+              </TableRow>
+            </TableHead>
+            {/* Show loader while data is being fetched */}
+            {isLoading && (
+              <tbody>
+                <tr>
+                  <td colSpan={6} className="flex justify-center items-center h-full">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            )}
+            {!isLoading && ( // Conditionally render the table body when not loading
               <TableBody>
                 {!!searchText ? (
                   renderVisibleViews(view.children)
@@ -433,9 +456,9 @@ const ViewsPage: React.FC = () => {
                   </>
                 )}
               </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+            )}
+          </Table>
+        </TableContainer>
       </main>
     </div>
   );

@@ -1,4 +1,4 @@
-// components/HierarchyComponent.tsx
+//HierarchyComponent.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
 import { Button, TextField, Paper, Typography, TableContainer, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
@@ -7,6 +7,16 @@ import { useParams, useRouter } from 'next/navigation';
 import { InputAdornment } from '@mui/material';
 import { Search } from '@mui/icons-material';
 import { fetchData } from './api';
+import { styled } from '@mui/system';
+
+// Create a makeStyles instance
+const HierarchyButton = styled(Button)(({ theme }) => ({
+  color: 'black',
+  backgroundColor: 'white',
+  '&:hover': {
+    backgroundColor: 'gray', // Change to the desired hover color
+  },
+}));
 
 // Interfaces for data structures
 interface Capture {
@@ -75,6 +85,7 @@ const HierarchyComponent: React.FC = () => {
   const [detailViewData, setDetailViewData] = useState<View | null>(null);
   const router = useRouter();
   const params = useParams();
+  const structureId = Array.isArray(params.structure) ? params.structure[0] : params.structure;
 
   // Fetch data on component mount
   useEffect(() => {
@@ -144,6 +155,12 @@ const HierarchyComponent: React.FC = () => {
   const handleSearch = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const searchText = event.target.value.toLowerCase();
     setSearchTerm(searchText);
+    if (!searchText) {
+      setExpanded(true);
+    } else {
+      // If there is a search term, expand views
+      setExpandedViews([(data?._id || ''), ...(data?.children.map((child) => child._id) || [])]);
+    }
   };
 
   //text and color of status
@@ -169,9 +186,6 @@ const HierarchyComponent: React.FC = () => {
       };
     }
 
-    // Handle other cases or states as needed
-    // For example, you can add more conditions for different states
-
     return null; // Return null if no conditions are met
   };
 
@@ -180,7 +194,7 @@ const HierarchyComponent: React.FC = () => {
     const filterViewsRecursive = (view: View, depth: number = 0): View | null => {
       const viewNameLowerCase = view.name.toLowerCase();
       const matchingChildren = view.children
-        .map((child) => filterViewsRecursive(child))
+        .map((child) => filterViewsRecursive(child, depth + 1))
         .filter((child) => child !== null) as View[];
 
       if (viewNameLowerCase.includes(searchTerm) || matchingChildren.length > 0) {
@@ -194,9 +208,9 @@ const HierarchyComponent: React.FC = () => {
 
       return null;
     };
-
+    //matching list
     const matchingViews = views.map((view) => filterViewsRecursive(view)).filter(Boolean);
-
+    //if no results
     if (matchingViews.length === 0 && searchTerm.trim() !== "") {
       return (
         <div className="text-center mt-6">
@@ -204,16 +218,17 @@ const HierarchyComponent: React.FC = () => {
         </div>
       );
     }
-
+    //display the results of search
     return matchingViews.map((matchedParent) => (
       <React.Fragment key={matchedParent!._id}>
-        {renderViewRow(matchedParent!)}
+        {renderViewRow(matchedParent!, 1)}
         {expandedViews.includes(matchedParent!._id) && matchedParent!.children.length > 0 && (
-          renderViewRowsRecursive(matchedParent!.children)
+          renderViewRowsRecursive(matchedParent!.children, 1)
         )}
       </React.Fragment>
     ));
   };
+
 
   // Render expanded view and its children
   const renderExpandedView = (view: View) => (
@@ -228,41 +243,46 @@ const HierarchyComponent: React.FC = () => {
   };
 
   // Render a single view row
-  const renderViewRow = (view: View, depth: number = 0) => (
-    <TableRow key={view._id} className="">
-      <TableCell className="p-3 pl-3 mb-5 border bg-gray-200" style={{ width: '330px', paddingLeft: `${(depth || 0) * 5}px` }}>
-        <div className="flex justify-between items-center w-full">
-          <div>
-            <span onClick={() => handleToggleChildren(view._id)} className="pl-3 cursor-pointer">
-              {view.children && view.children.length > 0 &&
-                (expandedViews.includes(view._id) ? '-' : '+')}
-            </span>
-            <span
-              id={view._id}
-              onClick={() => handleViewNameClick(view._id)}
-              className="cursor-pointer pl-2"
-              style={{ marginLeft: '5px' }}
-            >
-              {view.name}
-            </span>
-          </div>
-          {/* Display status button */}
-          {view.status && (
-            <div className="flex items-center status-button-container">
-              {getStatusButtonData(view) && (
-                <button className={`max-h-15 w-[2em] px-1 py-1 text-white rounded text-xs ${getStatusButtonData(view)!.color}`}>
-                  {getStatusButtonData(view)!.label}
-                </button>
-              )}
+  const renderViewRow = (view: View, depth: number = 0) => {
+    const isCurrentStructure = view._id === structureId;
+    const hasLastUpdated = !!view.lastUpdated;
+    return (
+      <TableRow key={view._id} className={`${!hasLastUpdated ? 'bg-gray-200' : ''} border-b ${isCurrentStructure ? 'bg-orange-100' : 'hover:bg-gray-100'}`} style={{ color: isCurrentStructure ? '#F1742E' : '' }}>
+        <TableCell className={`p-3 pl-3 mb-5 border ${isCurrentStructure ? '' : ''}`} style={{ width: '330px', marginLeft: `${((depth || 0) + 1) * 15}px` }}>
+          <div className="flex justify-between items-center w-full">
+            <div>
+              <span onClick={() => handleToggleChildren(view._id)} className="pl-3 cursor-pointer">
+                {view.children && view.children.length > 0 && (expandedViews.includes(view._id) ? '-' : '+')}
+              </span>
+              <span
+                id={view._id}
+                onClick={() => handleViewNameClick(view._id)}
+                className={`cursor-pointer pl-2 ${isCurrentStructure ? 'text-white' : ''}`}
+                style={{ marginLeft: '5px', color: isCurrentStructure ? '#F1742E' : '' }}
+              >
+                {view.name}
+              </span>
             </div>
-          )}
-        </div>
-      </TableCell>
-    </TableRow>
-  );
+            {/* Display status button */}
+            {view.status && (
+              <div className="flex items-center status-button-container">
+                {getStatusButtonData(view) && (
+                  <button className={`max-h-15 w-[2em] px-1 py-1 text-white rounded text-xs ${getStatusButtonData(view)!.color}`}>
+                    {getStatusButtonData(view)!.label}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
 
 
 
+
+  // Render view rows recursively for children
   const renderViewRowsRecursive = (views: View[] | null, depth: number = 0) => (
     views?.map((child) => (
       <React.Fragment key={child._id}>
@@ -276,24 +296,24 @@ const HierarchyComponent: React.FC = () => {
     ))
   );
 
+ 
 
 
-
+ //render the component 
   return (
     <div className="fixed bottom-0 left-0">
       {!expanded && (
-        <Button
-          variant="contained"
-          // color="default"  // Change to 'default' for grey color
-          onClick={() => setExpanded(!expanded)}
-          className="transform rotate-90 relative top-[-60px] no-hover"  // 'no-hover' class to remove hover effect
-        >
-          Hierarchy {expanded ? '▼' : '►'}
-        </Button>
+        <HierarchyButton
+        variant="contained"
+        onClick={() => setExpanded(!expanded)}
+        className="transform rotate-90 relative top-[-60px] no-hover"
+      >
+        Hierarchy {expanded ? '▼' : '►'}
+      </HierarchyButton>
       )}
       {expanded && (
         <div className="hierarchy-container ml-10 mb-5 h-[700] overflow-hidden">
-          <Paper elevation={3} className="pt-4 pl=4 pb-4 m mt-6 w-80 h-[500px] border">
+          <Paper elevation={3} className="pt-4 pl=4 pb-2 m mt-6 w-80 h-[500px] border">
             <div className="flex justify-between items-center mb-2">
               <Typography variant="h6" className="pl-4">Project Hierarchy</Typography>
               <Button color="secondary" onClick={() => setExpanded(!expanded)}>
@@ -306,7 +326,7 @@ const HierarchyComponent: React.FC = () => {
               fullWidth
               value={searchTerm}
               onChange={(e) => handleSearch(e)}
-              className="p-5 mb-6 text-orange-500"
+              className="p-2 mb-6 text-orange-500"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -315,10 +335,10 @@ const HierarchyComponent: React.FC = () => {
                 ),
               }}
             />
-            <div className="hierarchy-scroll max-h-[330px] overflow-y-auto">
+            <div className="hierarchy-scroll max-h-[300px] overflow-y-auto">
               {!!searchTerm ? (
                 <div className="flex flex-col">
-                  {renderVisibleViews(data?.children || [])}
+                  {renderVisibleViews([data!])}
                 </div>
               ) : (
                 <div className="flex flex-col">
